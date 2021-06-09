@@ -94,6 +94,7 @@ private:
 	std::vector<int> m_hitSounds;
 	float m_fSliderTime;
 	float m_fSliderTimeWithoutRepeats;
+	float m_fSliderSnakeTime;
 
 	struct SLIDERTICK
 	{
@@ -108,6 +109,7 @@ private:
 	float m_fSlidePercent;			// 0.0f - 1.0f - 0.0f - 1.0f - etc.
 	float m_fActualSlidePercent;	// 0.0f - 1.0f
 	float m_fSliderSnakePercent;
+	float m_fSliderShrinkPercent;
 	float m_fReverseArrowAlpha;
 	float m_fBodyAlpha;
 
