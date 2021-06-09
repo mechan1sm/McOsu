@@ -94,6 +94,7 @@ private:
 	std::vector<int> m_hitSounds;
 	float m_fSliderTime;
 	float m_fSliderTimeWithoutRepeats;
+	float m_fSliderSnakeTime;
 
 	struct SLIDERTICK
 	{
