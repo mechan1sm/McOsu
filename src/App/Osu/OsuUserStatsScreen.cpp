@@ -16,6 +16,7 @@
 
 #include "CBaseUIContainer.h"
 #include "CBaseUIScrollView.h"
+#include "CBaseUILabel.h"
 
 #include "Osu.h"
 #include "OsuIcons.h"
@@ -25,6 +26,7 @@
 #include "OsuOptionsMenu.h"
 #include "OsuSongBrowser2.h"
 #include "OsuModSelector.h"
+#include "OsuTooltipOverlay.h"
 #include "OsuMultiplayer.h"
 #include "OsuDatabase.h"
 #include "OsuDatabaseBeatmap.h"
@@ -36,6 +38,56 @@
 ConVar osu_ui_top_ranks_max("osu_ui_top_ranks_max", 100, "maximum number of displayed scores, to keep the ui/scrollbar manageable");
 
 
+
+class OsuUserStatsScreenLabel : public CBaseUILabel
+{
+public:
+	OsuUserStatsScreenLabel(Osu *osu, float xPos=0, float yPos=0, float xSize=0, float ySize=0, UString name="", UString text="")
+	{
+		m_osu = osu;
+	}
+
+	virtual void update()
+	{
+		CBaseUILabel::update();
+		if (!m_bVisible) return;
+
+		if (isMouseInside())
+		{
+			bool isEmpty = true;
+			for (size_t i=0; i<m_tooltipTextLines.size(); i++)
+			{
+				if (m_tooltipTextLines[i].length() > 0)
+				{
+					isEmpty = false;
+					break;
+				}
+			}
+
+			if (!isEmpty)
+			{
+				m_osu->getTooltipOverlay()->begin();
+				{
+					for (size_t i=0; i<m_tooltipTextLines.size(); i++)
+					{
+						if (m_tooltipTextLines[i].length() > 0)
+							m_osu->getTooltipOverlay()->addLine(m_tooltipTextLines[i]);
+					}
+				}
+				m_osu->getTooltipOverlay()->end();
+			}
+		}
+	}
+
+	void setTooltipText(UString text)
+	{
+		m_tooltipTextLines = text.split("\n");
+	}
+
+private:
+	Osu *m_osu;
+	std::vector<UString> m_tooltipTextLines;
+};
 
 class OsuUserStatsScreenMenuButton : public CBaseUIButton
 {
@@ -277,6 +329,14 @@ OsuUserStatsScreen::OsuUserStatsScreen(Osu *osu) : OsuScreenBackable(osu)
 	m_contextMenu = new OsuUIContextMenu(m_osu);
 	m_contextMenu->setVisible(true);
 
+	m_ppVersionInfoLabel = new OsuUserStatsScreenLabel(m_osu);
+	m_ppVersionInfoLabel->setText(UString::format("pp Version: %i", OsuDifficultyCalculator::PP_ALGORITHM_VERSION));
+	m_ppVersionInfoLabel->setTooltipText("WARNING: McOsu's star/pp algorithm is currently lagging behind the \"official\" version.\n \nReason being that keeping up-to-date requires a LOT of changes now.\nThe next goal is rewriting the algorithm architecture to be more similar to osu!lazer,\nas that will make porting star/pp changes infinitely easier for the foreseeable future.\n \nNo promises as to when all of that will be finished.");
+	m_ppVersionInfoLabel->setTextColor(/*0x77888888*/0xbbbb0000);
+	m_ppVersionInfoLabel->setDrawBackground(false);
+	m_ppVersionInfoLabel->setDrawFrame(false);
+	m_container->addBaseUIElement(m_ppVersionInfoLabel);
+
 	m_userButton = new OsuUISongBrowserUserButton(m_osu);
 	m_userButton->addTooltipLine("Click to change [User]");
 	m_userButton->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onUserClicked) );
@@ -296,9 +356,6 @@ OsuUserStatsScreen::OsuUserStatsScreen(Osu *osu) : OsuScreenBackable(osu)
 	}
 	m_menuButton->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onMenuClicked) );
 	m_container->addBaseUIElement(m_menuButton);
-
-	// the context menu gets added last (drawn on top of everything)
-	m_container->addBaseUIElement(m_contextMenu);
 
 	m_bRecalculatingPP = false;
 	m_backgroundPPRecalculator = NULL;
@@ -345,25 +402,8 @@ void OsuUserStatsScreen::draw(Graphics *g)
 		return;
 	}
 
-	// draw pp version info
-	{
-		const Vector2 center = m_userButton->getPos() + Vector2(0, m_userButton->getSize().y/2) - Vector2((m_userButton->getPos().x - m_scores->getPos().x)/2, 0);
-
-		McFont *font = engine->getResourceManager()->getFont("FONT_DEFAULT");
-		UString text = UString::format("pp Version: %i", OsuDifficultyCalculator::PP_ALGORITHM_VERSION);
-		const float stringWidth = font->getStringWidth(text);
-		const float overflow = (center.x + stringWidth/2) - m_userButton->getPos().x;
-
-		g->pushTransform();
-		{
-			g->translate((int)(center.x - stringWidth/2 - std::max(overflow, 0.0f)), (int)(center.y + font->getHeight()/2));
-			g->setColor(0x77888888);
-			g->drawString(font, text);
-		}
-		g->popTransform();
-	}
-
 	m_container->draw(g);
+	m_contextMenu->draw(g);
 
 	OsuScreenBackable::draw(g);
 }
@@ -390,6 +430,7 @@ void OsuUserStatsScreen::update()
 			return; // don't update rest of UI while recalcing
 	}
 
+	m_contextMenu->update();
 	m_container->update();
 
 	if (m_contextMenu->isMouseInside())
@@ -492,7 +533,7 @@ void OsuUserStatsScreen::rebuildScoreButtons(UString playerName)
 		}
 
 		OsuUISongBrowserScoreButton *button = new OsuUISongBrowserScoreButton(m_osu, m_contextMenu, 0, 0, 300, 100, UString(scores[i]->md5hash.c_str()), OsuUISongBrowserScoreButton::STYLE::TOP_RANKS);
-		button->setScore(*scores[i], scores.size()-i, title, weight);
+		button->setScore(*scores[i], NULL, scores.size()-i, title, weight);
 		button->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onScoreClicked) );
 
 		m_scoreButtons.push_back(button);
@@ -511,7 +552,7 @@ void OsuUserStatsScreen::onUserClicked(CBaseUIButton *button)
 	engine->getSound()->play(m_osu->getSkin()->getMenuClick());
 
 	// NOTE: code duplication (see OsuSongbrowser2.cpp)
-	std::vector<UString> names = m_osu->getSongBrowser()->getDatabase()->getPlayerNamesWithPPScores();
+	std::vector<UString> names = m_osu->getSongBrowser()->getDatabase()->getPlayerNamesWithScoresForUserSwitcher();
 	if (names.size() > 0)
 	{
 		m_contextMenu->setPos(m_userButton->getPos() + Vector2(0, m_userButton->getSize().y));
@@ -525,7 +566,7 @@ void OsuUserStatsScreen::onUserClicked(CBaseUIButton *button)
 			if (names[i] == m_name_ref->getString())
 				button->setTextBrightColor(0xff00ff00);
 		}
-		m_contextMenu->end();
+		m_contextMenu->end(false, true);
 		m_contextMenu->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onUserButtonChange) );
 		OsuUIContextMenu::clampToRightScreenEdge(m_contextMenu);
 	}
@@ -566,6 +607,14 @@ void OsuUserStatsScreen::onMenuClicked(CBaseUIButton *button)
 			importText.append("\"");
 			m_contextMenu->addButton(importText, 2);
 		}
+		spacer = m_contextMenu->addButton("-");
+		spacer->setEnabled(false);
+		spacer->setTextColor(0xff888888);
+		spacer->setTextDarkColor(0xff000000);
+		{
+			UString copyText = "Copy All Scores from ...";
+			m_contextMenu->addButton(copyText, 3);
+		}
 		spacer = m_contextMenu->addButton("---");
 		spacer->setEnabled(false);
 		spacer->setTextColor(0xff888888);
@@ -574,10 +623,10 @@ void OsuUserStatsScreen::onMenuClicked(CBaseUIButton *button)
 			UString deleteText = "Delete All Scores of \"";
 			deleteText.append(m_name_ref->getString());
 			deleteText.append("\"");
-			m_contextMenu->addButton(deleteText, 3);
+			m_contextMenu->addButton(deleteText, 4);
 		}
 	}
-	m_contextMenu->end();
+	m_contextMenu->end(false, false);
 	m_contextMenu->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onMenuSelected) );
 	OsuUIContextMenu::clampToRightScreenEdge(m_contextMenu);
 }
@@ -589,6 +638,8 @@ void OsuUserStatsScreen::onMenuSelected(UString text, int id)
 	else if (id == 2)
 		onRecalculatePPImportLegacyScoresClicked();
 	else if (id == 3)
+		onCopyAllScoresClicked();
+	else if (id == 4)
 		onDeleteAllScoresClicked();
 }
 
@@ -604,6 +655,26 @@ void OsuUserStatsScreen::onRecalculatePPImportLegacyScoresClicked()
 			reallyText.append("\"?");
 			m_contextMenu->addButton(reallyText)->setEnabled(false);
 		}
+		{
+			UString reallyText2 = "NOTE: You can NOT mix-and-match-import.";
+			CBaseUIButton *reallyText2Button = m_contextMenu->addButton(reallyText2);
+			reallyText2Button->setEnabled(false);
+			reallyText2Button->setTextColor(0xff555555);
+			reallyText2Button->setTextDarkColor(0xff000000);
+		}
+		{
+			UString reallyText3 = "Only scores matching the EXACT username";
+			CBaseUIButton *reallyText3Button = m_contextMenu->addButton(reallyText3);
+			reallyText3Button->setEnabled(false);
+			reallyText3Button->setTextColor(0xff555555);
+			reallyText3Button->setTextDarkColor(0xff000000);
+
+			UString reallyText4 = "of your currently selected profile are imported.";
+			CBaseUIButton *reallyText4Button = m_contextMenu->addButton(reallyText4);
+			reallyText4Button->setEnabled(false);
+			reallyText4Button->setTextColor(0xff555555);
+			reallyText4Button->setTextDarkColor(0xff000000);
+		}
 		CBaseUIButton *spacer = m_contextMenu->addButton("---");
 		spacer->setTextLeft(false);
 		spacer->setEnabled(false);
@@ -612,7 +683,7 @@ void OsuUserStatsScreen::onRecalculatePPImportLegacyScoresClicked()
 		m_contextMenu->addButton("Yes", 1)->setTextLeft(false);
 		m_contextMenu->addButton("No")->setTextLeft(false);
 	}
-	m_contextMenu->end();
+	m_contextMenu->end(false, false);
 	m_contextMenu->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onRecalculatePPImportLegacyScoresConfirmed) );
 	OsuUIContextMenu::clampToRightScreenEdge(m_contextMenu);
 }
@@ -644,6 +715,149 @@ void OsuUserStatsScreen::onRecalculatePP(bool importLegacyScores)
 	engine->getResourceManager()->loadResource(m_backgroundPPRecalculator);
 }
 
+void OsuUserStatsScreen::onCopyAllScoresClicked()
+{
+	std::vector<UString> names = m_osu->getSongBrowser()->getDatabase()->getPlayerNamesWithPPScores();
+	{
+		// remove ourself
+		for (size_t i=0; i<names.size(); i++)
+		{
+			if (names[i] == m_name_ref->getString())
+			{
+				names.erase(names.begin() + i);
+				i--;
+			}
+		}
+	}
+
+	if (names.size() < 1)
+	{
+		m_osu->getNotificationOverlay()->addNotification("There are no valid users/scores to copy from.");
+		return;
+	}
+
+	m_contextMenu->setPos(m_menuButton->getPos() + Vector2(0, m_menuButton->getSize().y));
+	m_contextMenu->setRelPos(m_menuButton->getPos() + Vector2(0, m_menuButton->getSize().y));
+	m_contextMenu->begin();
+	{
+		m_contextMenu->addButton("Select user to copy from:", 0)->setTextColor(0xff888888)->setTextDarkColor(0xff000000)->setTextLeft(false)->setEnabled(false);
+		for (int i=0; i<names.size(); i++)
+		{
+			m_contextMenu->addButton(names[i]);
+		}
+	}
+	m_contextMenu->end(false, true);
+	m_contextMenu->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onCopyAllScoresUserSelected) );
+	OsuUIContextMenu::clampToRightScreenEdge(m_contextMenu);
+}
+
+void OsuUserStatsScreen::onCopyAllScoresUserSelected(UString text, int id)
+{
+	m_sCopyAllScoresFromUser = text;
+
+	m_contextMenu->setPos(m_menuButton->getPos() + Vector2(0, m_menuButton->getSize().y));
+	m_contextMenu->setRelPos(m_menuButton->getPos() + Vector2(0, m_menuButton->getSize().y));
+	m_contextMenu->begin();
+	{
+		{
+			UString reallyText = "Really copy all scores from \"";
+			reallyText.append(m_sCopyAllScoresFromUser);
+			reallyText.append("\" into \"");
+			reallyText.append(m_name_ref->getString());
+			reallyText.append("\"?");
+			m_contextMenu->addButton(reallyText)->setEnabled(false);
+		}
+		CBaseUIButton *spacer = m_contextMenu->addButton("---");
+		spacer->setTextLeft(false);
+		spacer->setEnabled(false);
+		spacer->setTextColor(0xff888888);
+		spacer->setTextDarkColor(0xff000000);
+		m_contextMenu->addButton("Yes", 1)->setTextLeft(false);
+		m_contextMenu->addButton("No")->setTextLeft(false);
+	}
+	m_contextMenu->end(false, false);
+	m_contextMenu->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onCopyAllScoresConfirmed) );
+	OsuUIContextMenu::clampToRightScreenEdge(m_contextMenu);
+}
+
+void OsuUserStatsScreen::onCopyAllScoresConfirmed(UString text, int id)
+{
+	if (id != 1) return;
+	if (m_sCopyAllScoresFromUser.length() < 1) return;
+
+	const UString &playerNameToCopyInto = m_name_ref->getString();
+
+	if (playerNameToCopyInto.length() < 1 || m_sCopyAllScoresFromUser == playerNameToCopyInto) return;
+
+	debugLog("Copying all scores from \"%s\" into \"%s\"\n", m_sCopyAllScoresFromUser.toUtf8(), playerNameToCopyInto.toUtf8());
+
+	std::unordered_map<std::string, std::vector<OsuDatabase::Score>> *scores = m_osu->getSongBrowser()->getDatabase()->getScores();
+
+	std::vector<OsuDatabase::Score> tempScoresToCopy;
+	for (auto &kv : *scores)
+	{
+		tempScoresToCopy.clear();
+
+		// collect all to-be-copied scores for this beatmap into tempScoresToCopy
+		for (size_t i=0; i<kv.second.size(); i++)
+		{
+			const OsuDatabase::Score &existingScore = kv.second[i];
+
+			// NOTE: only ever copy McOsu scores
+			if (!existingScore.isLegacyScore)
+			{
+				if (existingScore.playerName == m_sCopyAllScoresFromUser)
+				{
+					// check if this user already has this exact same score (copied previously) and don't copy if that is the case
+					bool alreadyCopied = false;
+					for (size_t j=0; j<kv.second.size(); j++)
+					{
+						const OsuDatabase::Score &alreadyCopiedScore = kv.second[j];
+
+						if (j == i) continue;
+
+						if (!alreadyCopiedScore.isLegacyScore)
+						{
+							if (alreadyCopiedScore.playerName == playerNameToCopyInto)
+							{
+								if (existingScore.isScoreEqualToCopiedScoreIgnoringPlayerName(alreadyCopiedScore))
+								{
+									alreadyCopied = true;
+									break;
+								}
+							}
+						}
+					}
+
+					if (!alreadyCopied)
+						tempScoresToCopy.push_back(existingScore);
+				}
+			}
+		}
+
+		// and copy them into the db
+		if (tempScoresToCopy.size() > 0)
+		{
+			if (Osu::debug->getBool())
+				debugLog("Copying %i for %s\n", (int)tempScoresToCopy.size(), kv.first.c_str());
+
+			for (size_t i=0; i<tempScoresToCopy.size(); i++)
+			{
+				tempScoresToCopy[i].playerName = playerNameToCopyInto; // take ownership of this copied score
+				tempScoresToCopy[i].sortHack = m_osu->getSongBrowser()->getDatabase()->getAndIncrementScoreSortHackCounter();
+
+				kv.second.push_back(tempScoresToCopy[i]); // copy into db
+			}
+		}
+	}
+
+	// force recalc + refresh UI
+	m_osu->getSongBrowser()->getDatabase()->forceScoreUpdateOnNextCalculatePlayerStats();
+	m_osu->getSongBrowser()->getDatabase()->forceScoresSaveOnNextShutdown();
+
+	rebuildScoreButtons(playerNameToCopyInto);
+}
+
 void OsuUserStatsScreen::onDeleteAllScoresClicked()
 {
 	m_contextMenu->setPos(m_menuButton->getPos() + Vector2(0, m_menuButton->getSize().y));
@@ -664,7 +878,7 @@ void OsuUserStatsScreen::onDeleteAllScoresClicked()
 		m_contextMenu->addButton("Yes", 1)->setTextLeft(false);
 		m_contextMenu->addButton("No")->setTextLeft(false);
 	}
-	m_contextMenu->end();
+	m_contextMenu->end(false, false);
 	m_contextMenu->setClickCallback( fastdelegate::MakeDelegate(this, &OsuUserStatsScreen::onDeleteAllScoresConfirmed) );
 	OsuUIContextMenu::clampToRightScreenEdge(m_contextMenu);
 }
@@ -684,10 +898,16 @@ void OsuUserStatsScreen::onDeleteAllScoresConfirmed(UString text, int id)
 	{
 		for (size_t i=0; i<kv.second.size(); i++)
 		{
-			if (kv.second[i].playerName == playerName)
+			const OsuDatabase::Score &score = kv.second[i];
+
+			// NOTE: only ever delete McOsu scores
+			if (!score.isLegacyScore)
 			{
-				kv.second.erase(kv.second.begin() + i);
-				i--;
+				if (score.playerName == playerName)
+				{
+					kv.second.erase(kv.second.begin() + i);
+					i--;
+				}
 			}
 		}
 	}
@@ -703,7 +923,7 @@ void OsuUserStatsScreen::updateLayout()
 {
 	OsuScreenBackable::updateLayout();
 
-	const float dpiScale = Osu::getUIScale();
+	const float dpiScale = Osu::getUIScale(m_osu);
 
 	m_container->setSize(m_osu->getScreenSize());
 
@@ -732,4 +952,15 @@ void OsuUserStatsScreen::updateLayout()
 
 	m_menuButton->setSize(userButtonHeight*0.9f, userButtonHeight*0.9f);
 	m_menuButton->setPos(std::max(m_userButton->getPos().x + m_userButton->getSize().x, m_userButton->getPos().x + m_userButton->getSize().x + (m_userButton->getPos().x - m_scores->getPos().x)/2 - m_menuButton->getSize().x/2), m_userButton->getPos().y + m_userButton->getSize().y/2 - m_menuButton->getSize().y/2);
+
+	m_ppVersionInfoLabel->onResized(); // HACKHACK: framework bug (should update string metrics on setSizeToContent())
+	m_ppVersionInfoLabel->setSizeToContent(1, 10);
+	{
+		const Vector2 center = m_userButton->getPos() + Vector2(0, m_userButton->getSize().y/2) - Vector2((m_userButton->getPos().x - m_scores->getPos().x)/2, 0);
+		const Vector2 topLeft = center - m_ppVersionInfoLabel->getSize()/2;
+		const float overflow = (center.x + m_ppVersionInfoLabel->getSize().x/2) - m_userButton->getPos().x;
+
+		m_ppVersionInfoLabel->setPos((int)(topLeft.x - std::max(overflow, 0.0f)), (int)(topLeft.y));
+	}
 }
+

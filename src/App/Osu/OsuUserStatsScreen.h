@@ -19,6 +19,7 @@ class OsuUIContextMenu;
 class OsuUISongBrowserUserButton;
 class OsuUISongBrowserScoreButton;
 
+class OsuUserStatsScreenLabel;
 class OsuUserStatsScreenBackgroundPPRecalculator;
 
 class OsuUserStatsScreen : public OsuScreenBackable
@@ -49,6 +50,9 @@ private:
 	void onRecalculatePPImportLegacyScoresClicked();
 	void onRecalculatePPImportLegacyScoresConfirmed(UString text, int id);
 	void onRecalculatePP(bool importLegacyScores);
+	void onCopyAllScoresClicked();
+	void onCopyAllScoresUserSelected(UString text, int id);
+	void onCopyAllScoresConfirmed(UString text, int id);
 	void onDeleteAllScoresClicked();
 	void onDeleteAllScoresConfirmed(UString text, int id);
 
@@ -58,12 +62,16 @@ private:
 
 	OsuUIContextMenu *m_contextMenu;
 
+	OsuUserStatsScreenLabel *m_ppVersionInfoLabel;
+
 	OsuUISongBrowserUserButton *m_userButton;
 
 	CBaseUIScrollView *m_scores;
 	std::vector<OsuUISongBrowserScoreButton*> m_scoreButtons;
 
 	CBaseUIButton *m_menuButton;
+
+	UString m_sCopyAllScoresFromUser;
 
 	bool m_bRecalculatingPP;
 	OsuUserStatsScreenBackgroundPPRecalculator *m_backgroundPPRecalculator;

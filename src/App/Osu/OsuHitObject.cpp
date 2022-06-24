@@ -23,7 +23,8 @@
 ConVar osu_hitresult_draw_300s("osu_hitresult_draw_300s", false);
 
 ConVar osu_hitresult_scale("osu_hitresult_scale", 1.0f);
-ConVar osu_hitresult_duration("osu_hitresult_duration", 1.100f, "max duration of the entire hitresult in seconds (this limits all other values)");
+ConVar osu_hitresult_duration("osu_hitresult_duration", 1.100f, "max duration of the entire hitresult in seconds (this limits all other values, except for animated skins!)");
+ConVar osu_hitresult_duration_max("osu_hitresult_duration_max", 5.0f, "absolute hard limit in seconds, even for animated skins");
 ConVar osu_hitresult_animated("osu_hitresult_animated", true, "whether to animate hitresult scales (depending on particle<SCORE>.png, either scale wobble or smooth scale)");
 ConVar osu_hitresult_fadein_duration("osu_hitresult_fadein_duration", 0.120f);
 ConVar osu_hitresult_fadeout_start_time("osu_hitresult_fadeout_start_time", 0.500f);
@@ -47,6 +48,10 @@ ConVar osu_mod_hd_circle_fadeout_end_percent("osu_mod_hd_circle_fadeout_end_perc
 ConVar osu_mod_target_300_percent("osu_mod_target_300_percent", 0.5f);
 ConVar osu_mod_target_100_percent("osu_mod_target_100_percent", 0.7f);
 ConVar osu_mod_target_50_percent("osu_mod_target_50_percent", 0.95f);
+
+ConVar osu_mod_approach_different("osu_mod_approach_different", false, "replicates osu!lazer's \"Approach Different\" mod");
+ConVar osu_mod_approach_different_initial_size("osu_mod_approach_different_initial_size", 4.0f, "initial size of the approach circles, relative to hit circles (as a multiplier)");
+ConVar osu_mod_approach_different_style("osu_mod_approach_different_style", 1, "0 = linear, 1 = gravity, 2 = InOut1, 3 = InOut2, 4 = Accelerate1, 5 = Accelerate2, 6 = Accelerate3, 7 = Decelerate1, 8 = Decelerate2, 9 = Decelerate3");
 
 ConVar osu_relax_offset("osu_relax_offset", 0, "osu!relax always hits -12 ms too early, so set this to -12 (note the negative) if you want it to be the same");
 
@@ -247,21 +252,29 @@ OsuHitObject::OsuHitObject(long time, int sampleType, int comboNumber, bool isEn
 
 	m_iStack = 0;
 
-	m_hitresultanim1.time = 0.0f;
+	m_hitresultanim1.time = -9999.0f;
+	m_hitresultanim2.time = -9999.0f;
 
 	m_iSortHack = sortHackCounter++;
 }
 
-void OsuHitObject::draw(Graphics *g)
+void OsuHitObject::draw2(Graphics *g)
 {
-	if ((m_hitresultanim1.time - osu_hitresult_duration.getFloat()) < engine->getTime())
+	drawHitResultAnim(g, m_hitresultanim1);
+	drawHitResultAnim(g, m_hitresultanim2);
+}
+
+void OsuHitObject::drawHitResultAnim(Graphics *g, const HITRESULTANIM &hitresultanim)
+{
+	if ((hitresultanim.time - osu_hitresult_duration.getFloat()) < engine->getTime() // NOTE: this is written like that on purpose, don't change it ("future" results can be scheduled with it, e.g. for slider end)
+		&& (hitresultanim.time + osu_hitresult_duration_max.getFloat()*(1.0f / m_beatmap->getOsu()->getSpeedMultiplier())) > engine->getTime())
 	{
 		OsuBeatmapStandard *beatmapStd = dynamic_cast<OsuBeatmapStandard*>(m_beatmap);
 		const OsuBeatmapMania *beatmapMania = dynamic_cast<OsuBeatmapMania*>(m_beatmap);
 
 		OsuSkin *skin = m_beatmap->getSkin();
 		{
-			const long skinAnimationTimeStartOffset = m_iTime + m_iObjectDuration + m_hitresultanim1.delta;
+			const long skinAnimationTimeStartOffset = m_iTime + (hitresultanim.addObjectDurationToSkinAnimationTimeStartOffset ? m_iObjectDuration : 0) + hitresultanim.delta;
 
 			skin->getHit0()->setAnimationTimeOffset(skinAnimationTimeStartOffset);
 			skin->getHit0()->setAnimationFrameClampUp();
@@ -278,12 +291,12 @@ void OsuHitObject::draw(Graphics *g)
 			skin->getHit300k()->setAnimationTimeOffset(skinAnimationTimeStartOffset);
 			skin->getHit300k()->setAnimationFrameClampUp();
 
-			const float animPercentInv = 1.0f - (((engine->getTime() - m_hitresultanim1.time) * m_beatmap->getSpeedMultiplier()) / osu_hitresult_duration.getFloat());
+			const float animPercentInv = 1.0f - (((engine->getTime() - hitresultanim.time) * m_beatmap->getOsu()->getSpeedMultiplier()) / osu_hitresult_duration.getFloat());
 
 			if (beatmapStd != NULL)
-				drawHitResult(g, beatmapStd, beatmapStd->osuCoords2Pixels(m_hitresultanim1.rawPos), m_hitresultanim1.result, animPercentInv);
+				drawHitResult(g, beatmapStd, beatmapStd->osuCoords2Pixels(hitresultanim.rawPos), hitresultanim.result, animPercentInv);
 			else if (beatmapMania != NULL)
-				drawHitResult(g, skin, 200.0f, 150.0f, m_hitresultanim1.rawPos, m_hitresultanim1.result, animPercentInv);
+				drawHitResult(g, skin, 200.0f, 150.0f, hitresultanim.rawPos, hitresultanim.result, animPercentInv);
 		}
 	}
 }
@@ -301,7 +314,63 @@ void OsuHitObject::update(long curPos)
 	{
 		// approach circle scale
 		const float scale = clamp<float>((float)m_iDelta / (float)m_iApproachTime, 0.0f, 1.0f);
-		m_fApproachScale = 1 + scale * osu_approach_scale_multiplier.getFloat();
+		m_fApproachScale = 1 + (scale * osu_approach_scale_multiplier.getFloat());
+		if (osu_mod_approach_different.getBool())
+		{
+			const float back_const = 1.70158;
+
+			float time = 1.0f - scale;
+			{
+				switch (osu_mod_approach_different_style.getInt())
+				{
+				default: // "Linear"
+					break;
+				case 1: // "Gravity" / InBack
+					time = time * time * ((back_const + 1.0f) * time - back_const);
+					break;
+				case 2: // "InOut1" / InOutCubic
+					if (time < 0.5f)
+						time = time * time * time * 4.0f;
+					else
+					{
+						--time;
+						time = time * time * time * 4.0f + 1.0f;
+					}
+					break;
+				case 3: // "InOut2" / InOutQuint
+					if (time < 0.5f)
+						time = time * time * time * time * time * 16.0f;
+					else
+					{
+						--time;
+						time = time * time * time * time * time * 16.0f + 1.0f;
+					}
+					break;
+				case 4: // "Accelerate1" / In
+					time = time * time;
+					break;
+				case 5: // "Accelerate2" / InCubic
+					time = time * time * time;
+					break;
+				case 6: // "Accelerate3" / InQuint
+					time = time * time * time * time * time;
+					break;
+				case 7: // "Decelerate1" / Out
+					time = time * (2.0f - time);
+					break;
+				case 8: // "Decelerate2" / OutCubic
+					--time;
+					time = time * time * time + 1.0f;
+					break;
+				case 9: // "Decelerate3" / OutQuint
+					--time;
+					time = time * time * time * time * time + 1.0f;
+					break;
+				}
+				// NOTE: some of the easing functions will overflow/underflow, don't clamp and instead allow it on purpose
+			}
+			m_fApproachScale = 1 + lerp<float>(osu_mod_approach_different_initial_size.getFloat() - 1.0f, 0.0f, time);
+		}
 
 		// hitobject body fadein
 		const long fadeInStart = m_iTime - m_iApproachTime;
@@ -336,7 +405,7 @@ void OsuHitObject::update(long curPos)
 	}
 }
 
-void OsuHitObject::addHitResult(OsuScore::HIT result, long delta, bool isEndOfCombo, Vector2 posRaw, float targetDelta, float targetAngle, bool ignoreOnHitErrorBar, bool ignoreCombo, bool ignoreHealth)
+void OsuHitObject::addHitResult(OsuScore::HIT result, long delta, bool isEndOfCombo, Vector2 posRaw, float targetDelta, float targetAngle, bool ignoreOnHitErrorBar, bool ignoreCombo, bool ignoreHealth, bool addObjectDurationToSkinAnimationTimeStartOffset)
 {
 	if (m_beatmap->getOsu()->getModTarget() && result != OsuScore::HIT::HIT_MISS && targetDelta >= 0.0f)
 	{
@@ -360,10 +429,14 @@ void OsuHitObject::addHitResult(OsuScore::HIT result, long delta, bool isEndOfCo
 		hitresultanim.rawPos = posRaw;
 		hitresultanim.delta = delta;
 		hitresultanim.time = engine->getTime();
+		hitresultanim.addObjectDurationToSkinAnimationTimeStartOffset = addObjectDurationToSkinAnimationTimeStartOffset;
 	}
-	m_hitresultanim1 = hitresultanim;
 
-	// NOTE: in the future, can easily support 2 results for e.g. slider headcircle scorev2 stuff (2 results should be enough for any hitobject)
+	// currently a maximum of 2 simultaneous results are supported (for drawing, per hitobject)
+	if (engine->getTime() > m_hitresultanim1.time + osu_hitresult_duration_max.getFloat()*(1.0f / m_beatmap->getOsu()->getSpeedMultiplier()))
+		m_hitresultanim1 = hitresultanim;
+	else
+		m_hitresultanim2 = hitresultanim;
 }
 
 void OsuHitObject::onReset(long curPos)
@@ -371,5 +444,6 @@ void OsuHitObject::onReset(long curPos)
 	m_bMisAim = false;
 	m_iAutopilotDelta = 0;
 
-	m_hitresultanim1.time = 0.0f;
+	m_hitresultanim1.time = -9999.0f;
+	m_hitresultanim2.time = -9999.0f;
 }

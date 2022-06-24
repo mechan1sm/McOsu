@@ -40,6 +40,8 @@ public:
 	void onKeyDown(KeyboardEvent &key);
 	void onKeyUp(KeyboardEvent &key);
 
+	inline bool isCrosshairIntersectingScreen() const {return m_bCrosshairIntersectsScreen;}
+
 private:
 	static int SUBDIVISIONS;
 
@@ -83,6 +85,8 @@ private:
 
 	Matrix4 m_modelMatrix;
 
+	bool m_bCrosshairIntersectsScreen;
+
 #ifdef FPOSU_FEATURE_MAP3D
 
 	Map3DLoader *m_map;
@@ -90,7 +94,7 @@ private:
 #endif
 
 	// helper functions
-	static float subdivide(std::list<VertexPair> meshList, const std::list<VertexPair>::iterator begin, const std::list<VertexPair>::iterator end, int n, float edgeDistance);
+	static float subdivide(std::list<VertexPair> &meshList, const std::list<VertexPair>::iterator &begin, const std::list<VertexPair>::iterator &end, int n, float edgeDistance);
 	static Vector3 normalFromTriangle(Vector3 p1, Vector3 p2, Vector3 p3);
 };
 

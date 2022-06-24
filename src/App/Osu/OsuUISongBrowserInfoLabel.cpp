@@ -50,6 +50,7 @@ OsuUISongBrowserInfoLabel::OsuUISongBrowserInfoLabel(Osu *osu, float xPos, float
 	m_iLengthMS = 0;
 	m_iMinBPM = 0;
 	m_iMaxBPM = 0;
+	m_iMostCommonBPM = 0;
 	m_iNumObjects = 0;
 
 	m_fCS = 5.0f;
@@ -85,10 +86,11 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 
 	const float globalScale = std::max((m_vSize.y / getMinimumHeight())*0.91f, 1.0f);
 
+	const int shadowOffset = std::round(1.0f * ((float)m_font->getDPI() / 96.0f)); // NOTE: abusing font dpi
+
 	int yCounter = m_vPos.y;
 
 	// draw title
-	g->setColor(0xffffffff);
 	g->pushTransform();
 	{
 		const float scale = m_fTitleScale*globalScale;
@@ -97,12 +99,17 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 
 		g->scale(scale, scale);
 		g->translate((int)(m_vPos.x), yCounter);
+
+		g->translate(shadowOffset, shadowOffset);
+		g->setColor(0xff000000);
+		g->drawString(m_font, titleText);
+		g->translate(-shadowOffset, -shadowOffset);
+		g->setColor(0xffffffff);
 		g->drawString(m_font, titleText);
 	}
 	g->popTransform();
 
 	// draw subtitle (mapped by)
-	g->setColor(0xffffffff);
 	g->pushTransform();
 	{
 		const float scale = m_fSubTitleScale*globalScale;
@@ -111,15 +118,18 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 
 		g->scale(scale, scale);
 		g->translate((int)(m_vPos.x), yCounter);
+
+		g->translate(shadowOffset, shadowOffset);
+		g->setColor(0xff000000);
+		g->drawString(m_font, subTitleText);
+		g->translate(-shadowOffset, -shadowOffset);
+		g->setColor(0xffffffff);
 		g->drawString(m_font, subTitleText);
 	}
 	g->popTransform();
 
 	// draw song info (length, bpm, objects)
-	g->setColor(0xffffffff);
-	if (m_osu->getSpeedMultiplier() != 1.0f)
-		g->setColor(m_osu->getSpeedMultiplier() > 1.0f ? 0xffff7f7f : 0xffadd8e6);
-
+	const Color songInfoColor = (m_osu->getSpeedMultiplier() != 1.0f ? (m_osu->getSpeedMultiplier() > 1.0f ? 0xffff7f7f : 0xffadd8e6) : 0xffffffff);
 	g->pushTransform();
 	{
 		const float scale = m_fSongInfoScale*globalScale*0.9f;
@@ -128,12 +138,18 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 
 		g->scale(scale, scale);
 		g->translate((int)(m_vPos.x), yCounter);
+
+		g->translate(shadowOffset, shadowOffset);
+		g->setColor(0xff000000);
+		g->drawString(m_font, songInfoText);
+		g->translate(-shadowOffset, -shadowOffset);
+		g->setColor(songInfoColor);
 		g->drawString(m_font, songInfoText);
 	}
 	g->popTransform();
 
 	// draw diff info (CS, AR, OD, HP, Stars)
-	g->setColor(m_osu->getModEZ() ? 0xffadd8e6 : (m_osu->getModHR() ? 0xffff7f7f : 0xffffffff));
+	const Color diffInfoColor = m_osu->getModEZ() ? 0xffadd8e6 : (m_osu->getModHR() ? 0xffff7f7f : 0xffffffff);
 	g->pushTransform();
 	{
 		const float scale = m_fDiffInfoScale*globalScale*0.9f;
@@ -142,6 +158,12 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 
 		g->scale(scale, scale);
 		g->translate((int)(m_vPos.x), yCounter);
+
+		g->translate(shadowOffset, shadowOffset);
+		g->setColor(0xff000000);
+		g->drawString(m_font, diffInfoText);
+		g->translate(-shadowOffset, -shadowOffset);
+		g->setColor(diffInfoColor);
 		g->drawString(m_font, diffInfoText);
 	}
 	g->popTransform();
@@ -149,7 +171,6 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 	// draw offset (local, online)
 	if (m_iLocalOffset != 0 || m_iOnlineOffset != 0)
 	{
-		g->setColor(0xffffffff);
 		g->pushTransform();
 		{
 			const float scale = m_fOffsetInfoScale*globalScale*0.8f;
@@ -158,6 +179,12 @@ void OsuUISongBrowserInfoLabel::draw(Graphics *g)
 
 			g->scale(scale, scale);
 			g->translate((int)(m_vPos.x), yCounter);
+
+			g->translate(shadowOffset, shadowOffset);
+			g->setColor(0xff000000);
+			g->drawString(m_font, offsetInfoText);
+			g->translate(-shadowOffset, -shadowOffset);
+			g->setColor(0xffffffff);
 			g->drawString(m_font, offsetInfoText);
 		}
 		g->popTransform();
@@ -214,6 +241,8 @@ void OsuUISongBrowserInfoLabel::update()
 
 					m_osu->getTooltipOverlay()->addLine(UString::format("Circles: %i, Sliders: %i, Spinners: %i", numCircles, numSliders, std::max(0, numObjects - numCircles - numSliders)));
 					m_osu->getTooltipOverlay()->addLine(UString::format("OPM: %i, CPM: %i, SPM: %i", (int)opm, (int)cpm, (int)spm));
+					m_osu->getTooltipOverlay()->addLine(UString::format("ID: %i, SetID: %i", beatmap->getSelectedDifficulty2()->getID(), beatmap->getSelectedDifficulty2()->getSetID()));
+					m_osu->getTooltipOverlay()->addLine(UString::format("MD5: %s", beatmap->getSelectedDifficulty2()->getMD5Hash().c_str()));
 				}
 			}
 			m_osu->getTooltipOverlay()->end();
@@ -231,7 +260,7 @@ void OsuUISongBrowserInfoLabel::setFromBeatmap(OsuBeatmap *beatmap, OsuDatabaseB
 	setMapper(diff2->getCreator());
 
 	setLengthMS(diff2->getLengthMS());
-	setBPM(diff2->getMinBPM(), diff2->getMaxBPM());
+	setBPM(diff2->getMinBPM(), diff2->getMaxBPM(), diff2->getMostCommonBPM());
 	setNumObjects(diff2->getNumObjects());
 
 	setCS(diff2->getCS());
@@ -254,7 +283,7 @@ void OsuUISongBrowserInfoLabel::setFromMissingBeatmap(long beatmapId)
 	setMapper("MISSING BEATMAP!");
 
 	setLengthMS(0);
-	setBPM(0, 0);
+	setBPM(0, 0, 0);
 	setNumObjects(0);
 
 	setCS(0);
@@ -322,6 +351,7 @@ UString OsuUISongBrowserInfoLabel::buildSongInfoString()
 
 	const int minBPM = m_iMinBPM * m_osu->getSpeedMultiplier();
 	const int maxBPM = m_iMaxBPM * m_osu->getSpeedMultiplier();
+	const int mostCommonBPM = m_iMostCommonBPM * m_osu->getSpeedMultiplier();
 
 	int numObjects = m_iNumObjects;
 
@@ -331,7 +361,7 @@ UString OsuUISongBrowserInfoLabel::buildSongInfoString()
 	if (m_iMinBPM == m_iMaxBPM)
 		return UString::format("Length: %02i:%02i BPM: %i Objects: %i", minutes, seconds, maxBPM, numObjects);
 	else
-		return UString::format("Length: %02i:%02i BPM: %i-%i Objects: %i", minutes, seconds, minBPM, maxBPM, numObjects);
+		return UString::format("Length: %02i:%02i BPM: %i-%i (%i) Objects: %i", minutes, seconds, minBPM, maxBPM, mostCommonBPM, numObjects);
 }
 
 UString OsuUISongBrowserInfoLabel::buildDiffInfoString()

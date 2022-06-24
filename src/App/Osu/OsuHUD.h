@@ -40,7 +40,8 @@ public:
 	void drawVR(Graphics *g, Matrix4 &mvp, OsuVR *vr);
 	void drawVRDummy(Graphics *g, Matrix4 &mvp, OsuVR *vr);
 
-	void drawCursor(Graphics *g, Vector2 pos, float alphaMultiplier = 1.0f, bool secondTrail = false);
+	void drawCursor(Graphics *g, Vector2 pos, float alphaMultiplier = 1.0f, bool secondTrail = false, bool updateAndDrawTrail = true);
+	void drawCursorTrail(Graphics *g, Vector2 pos, float alphaMultiplier = 1.0f, bool secondTrail = false); // NOTE: only use if drawCursor() with updateAndDrawTrail = false (FPoSu)
 	void drawCursorSpectator1(Graphics *g, Vector2 pos, float alphaMultiplier = 1.0f);
 	void drawCursorSpectator2(Graphics *g, Vector2 pos, float alphaMultiplier = 1.0f);
 	void drawCursorVR1(Graphics *g, Matrix4 &mvp, Vector2 pos, float alphaMultiplier = 1.0f);
@@ -53,7 +54,8 @@ public:
 	void drawLoadingSmall(Graphics *g);
 	void drawBeatmapImportSpinner(Graphics *g);
 	void drawVolumeChange(Graphics *g);
-	void drawScoreNumber(Graphics *g, unsigned long long number, float scale = 1.0f, bool drawLeadingZeroes = false, int offset = 2);
+	void drawScoreNumber(Graphics *g, unsigned long long number, float scale = 1.0f, bool drawLeadingZeroes = false);
+	void drawComboNumber(Graphics *g, unsigned long long number, float scale = 1.0f, bool drawLeadingZeroes = false);
 	void drawComboSimple(Graphics *g, int combo, float scale = 1.0f); // used by OsuRankingScreen
 	void drawAccuracySimple(Graphics *g, float accuracy, float scale = 1.0f); // used by OsuRankingScreen
 	void drawWarningArrow(Graphics *g, Vector2 pos, bool flipVertically, bool originLeft = true);
@@ -149,8 +151,9 @@ private:
 
 	void addCursorTrailPosition(std::vector<CURSORTRAIL> &trail, Vector2 pos, bool empty = false);
 
-	void drawCursorInt(Graphics *g, Shader *trailShader, std::vector<CURSORTRAIL> &trail, Matrix4 &mvp, Vector2 pos, float alphaMultiplier = 1.0f, bool emptyTrailFrame = false);
+	void drawCursorInt(Graphics *g, Shader *trailShader, std::vector<CURSORTRAIL> &trail, Matrix4 &mvp, Vector2 pos, float alphaMultiplier = 1.0f, bool emptyTrailFrame = false, bool updateAndDrawTrail = true);
 	void drawCursorRaw(Graphics *g, Vector2 pos, float alphaMultiplier = 1.0f);
+	void drawCursorTrailInt(Graphics *g, Shader *trailShader, std::vector<CURSORTRAIL> &trail, Matrix4 &mvp, Vector2 pos, float alphaMultiplier = 1.0f, bool emptyTrailFrame = false);
 	void drawCursorTrailRaw(Graphics *g, float alpha, Vector2 pos);
 	void drawFps(Graphics *g, McFont *font, float fps);
 	void drawAccuracy(Graphics *g, float accuracy);

@@ -22,6 +22,7 @@
 #include "Osu.h"
 #include "OsuVR.h"
 #include "OsuMultiplayer.h"
+#include "OsuModFPoSu.h"
 #include "OsuSkin.h"
 #include "OsuSkinImage.h"
 
@@ -50,6 +51,7 @@ ConVar osu_cursor_alpha("osu_cursor_alpha", 1.0f);
 ConVar osu_cursor_scale("osu_cursor_scale", 1.5f);
 ConVar osu_cursor_expand_scale_multiplier("osu_cursor_expand_scale_multiplier", 1.3f);
 ConVar osu_cursor_expand_duration("osu_cursor_expand_duration", 0.1f);
+ConVar osu_cursor_trail_scale("osu_cursor_trail_scale", 1.0f);
 ConVar osu_cursor_trail_length("osu_cursor_trail_length", 0.17f, "how long unsmooth cursortrails should be, in seconds");
 ConVar osu_cursor_trail_spacing("osu_cursor_trail_spacing", 0.015f, "how big the gap between consecutive unsmooth cursortrail images should be, in seconds");
 ConVar osu_cursor_trail_alpha("osu_cursor_trail_alpha", 1.0f);
@@ -57,6 +59,7 @@ ConVar osu_cursor_trail_smooth_force("osu_cursor_trail_smooth_force", false);
 ConVar osu_cursor_trail_smooth_length("osu_cursor_trail_smooth_length", 0.5f, "how long smooth cursortrails should be, in seconds");
 ConVar osu_cursor_trail_smooth_div("osu_cursor_trail_smooth_div", 4.0f, "divide the cursortrail.png image size by this much, for determining the distance to the next trail image");
 ConVar osu_cursor_trail_max_size("osu_cursor_trail_max_size", 2048, "maximum number of rendered trail images, array size limit");
+ConVar osu_cursor_trail_expand("osu_cursor_trail_expand", true, "if \"CursorExpand: 1\" in your skin.ini, whether the trail should then also expand or not");
 ConVar osu_cursor_ripple_duration("osu_cursor_ripple_duration", 0.7f, "time in seconds each cursor ripple is visible");
 ConVar osu_cursor_ripple_alpha("osu_cursor_ripple_alpha", 1.0f);
 ConVar osu_cursor_ripple_additive("osu_cursor_ripple_additive", true, "use additive blending");
@@ -72,16 +75,17 @@ ConVar osu_hud_scale("osu_hud_scale", 1.0f);
 ConVar osu_hud_hiterrorbar_alpha("osu_hud_hiterrorbar_alpha", 1.0f, "opacity multiplier for entire hiterrorbar");
 ConVar osu_hud_hiterrorbar_bar_alpha("osu_hud_hiterrorbar_bar_alpha", 1.0f, "opacity multiplier for background color bar");
 ConVar osu_hud_hiterrorbar_centerline_alpha("osu_hud_hiterrorbar_centerline_alpha", 1.0f, "opacity multiplier for center line");
+ConVar osu_hud_hiterrorbar_entry_additive("osu_hud_hiterrorbar_entry_additive", true, "whether to use additive blending for all hit error entries/lines");
 ConVar osu_hud_hiterrorbar_entry_alpha("osu_hud_hiterrorbar_entry_alpha", 0.75f, "opacity multiplier for all hit error entries/lines");
-ConVar osu_hud_hiterrorbar_entry_300_r("osu_hud_hiterrorbar_entry_300_r", 0);
-ConVar osu_hud_hiterrorbar_entry_300_g("osu_hud_hiterrorbar_entry_300_g", 205);
-ConVar osu_hud_hiterrorbar_entry_300_b("osu_hud_hiterrorbar_entry_300_b", 205);
-ConVar osu_hud_hiterrorbar_entry_100_r("osu_hud_hiterrorbar_entry_100_r", 0);
-ConVar osu_hud_hiterrorbar_entry_100_g("osu_hud_hiterrorbar_entry_100_g", 205);
-ConVar osu_hud_hiterrorbar_entry_100_b("osu_hud_hiterrorbar_entry_100_b", 0);
-ConVar osu_hud_hiterrorbar_entry_50_r("osu_hud_hiterrorbar_entry_50_r", 205);
-ConVar osu_hud_hiterrorbar_entry_50_g("osu_hud_hiterrorbar_entry_50_g", 115);
-ConVar osu_hud_hiterrorbar_entry_50_b("osu_hud_hiterrorbar_entry_50_b", 0);
+ConVar osu_hud_hiterrorbar_entry_300_r("osu_hud_hiterrorbar_entry_300_r", 50);
+ConVar osu_hud_hiterrorbar_entry_300_g("osu_hud_hiterrorbar_entry_300_g", 188);
+ConVar osu_hud_hiterrorbar_entry_300_b("osu_hud_hiterrorbar_entry_300_b", 231);
+ConVar osu_hud_hiterrorbar_entry_100_r("osu_hud_hiterrorbar_entry_100_r", 87);
+ConVar osu_hud_hiterrorbar_entry_100_g("osu_hud_hiterrorbar_entry_100_g", 227);
+ConVar osu_hud_hiterrorbar_entry_100_b("osu_hud_hiterrorbar_entry_100_b", 19);
+ConVar osu_hud_hiterrorbar_entry_50_r("osu_hud_hiterrorbar_entry_50_r", 218);
+ConVar osu_hud_hiterrorbar_entry_50_g("osu_hud_hiterrorbar_entry_50_g", 174);
+ConVar osu_hud_hiterrorbar_entry_50_b("osu_hud_hiterrorbar_entry_50_b", 70);
 ConVar osu_hud_hiterrorbar_entry_miss_r("osu_hud_hiterrorbar_entry_miss_r", 205);
 ConVar osu_hud_hiterrorbar_entry_miss_g("osu_hud_hiterrorbar_entry_miss_g", 0);
 ConVar osu_hud_hiterrorbar_entry_miss_b("osu_hud_hiterrorbar_entry_miss_b", 0);
@@ -330,7 +334,7 @@ void OsuHUD::draw(Graphics *g)
 					beatmap->getMaxPossibleCombo(),
 					OsuDifficultyCalculator::calculateTotalStarsFromSkills(beatmap->getAimStarsForUpToHitObjectIndex(hitObjectIndexForCurrentTime), beatmap->getSpeedStarsForUpToHitObjectIndex(hitObjectIndexForCurrentTime)),
 					m_osu->getSongBrowser()->getDynamicStarCalculator()->getTotalStars(),
-					beatmap->getBPM(),
+					beatmap->getMostCommonBPM(),
 					OsuGameRules::getApproachRateForSpeedMultiplier(beatmap, beatmap->getSpeedMultiplier()),
 					beatmap->getCS(),
 					OsuGameRules::getOverallDifficultyForSpeedMultiplier(beatmap, beatmap->getSpeedMultiplier()),
@@ -415,7 +419,8 @@ void OsuHUD::draw(Graphics *g)
 
 	if (osu_draw_scrubbing_timeline.getBool() && m_osu->isSeeking())
 	{
-		std::vector<BREAK> breaks;
+		static std::vector<BREAK> breaks;
+		breaks.clear();
 
 		if (osu_draw_scrubbing_timeline_breaks.getBool())
 		{
@@ -575,7 +580,7 @@ void OsuHUD::updateLayout()
 {
 	// volume overlay
 	{
-		const float dpiScale = Osu::getUIScale();
+		const float dpiScale = Osu::getUIScale(m_osu);
 		const float sizeMultiplier = osu_hud_volume_size_multiplier.getFloat() * dpiScale;
 
 		m_volumeMaster->setSize(300*sizeMultiplier, 50*sizeMultiplier);
@@ -614,8 +619,11 @@ void OsuHUD::drawDummy(Graphics *g)
 	scoreEntry.highlight = true;
 	if (osu_draw_scoreboard.getBool())
 	{
-		std::vector<SCORE_ENTRY> scoreEntries;
-		scoreEntries.push_back(scoreEntry);
+		static std::vector<SCORE_ENTRY> scoreEntries;
+		scoreEntries.clear();
+		{
+			scoreEntries.push_back(scoreEntry);
+		}
 		drawScoreBoardInt(g, scoreEntries);
 	}
 
@@ -676,7 +684,7 @@ void OsuHUD::drawVR(Graphics *g, Matrix4 &mvp, OsuVR *vr)
 					beatmap->getMaxPossibleCombo(),
 					OsuDifficultyCalculator::calculateTotalStarsFromSkills(beatmap->getAimStarsForUpToHitObjectIndex(hitObjectIndexForCurrentTime), beatmap->getSpeedStarsForUpToHitObjectIndex(hitObjectIndexForCurrentTime)),
 					m_osu->getSongBrowser()->getDynamicStarCalculator()->getTotalStars(),
-					beatmap->getBPM(),
+					beatmap->getMostCommonBPM(),
 					OsuGameRules::getApproachRateForSpeedMultiplier(beatmap, beatmap->getSpeedMultiplier()),
 					beatmap->getCS(),
 					OsuGameRules::getOverallDifficultyForSpeedMultiplier(beatmap, beatmap->getSpeedMultiplier()),
@@ -739,8 +747,11 @@ void OsuHUD::drawVRDummy(Graphics *g, Matrix4 &mvp, OsuVR *vr)
 		scoreEntry.highlight = true;
 		if (osu_draw_scoreboard.getBool())
 		{
-			std::vector<SCORE_ENTRY> scoreEntries;
-			scoreEntries.push_back(scoreEntry);
+			static std::vector<SCORE_ENTRY> scoreEntries;
+			scoreEntries.clear();
+			{
+				scoreEntries.push_back(scoreEntry);
+			}
 			drawScoreBoardInt(g, scoreEntries);
 		}
 
@@ -765,7 +776,7 @@ void OsuHUD::drawVRDummy(Graphics *g, Matrix4 &mvp, OsuVR *vr)
 	vr->getShaderTexturedLegacyGeneric()->disable();
 }
 
-void OsuHUD::drawCursor(Graphics *g, Vector2 pos, float alphaMultiplier, bool secondTrail)
+void OsuHUD::drawCursor(Graphics *g, Vector2 pos, float alphaMultiplier, bool secondTrail, bool updateAndDrawTrail)
 {
 	if (osu_draw_cursor_ripples.getBool() && (!m_osu_mod_fposu_ref->getBool() || !m_osu->isInPlayMode()))
 		drawCursorRipples(g);
@@ -773,7 +784,18 @@ void OsuHUD::drawCursor(Graphics *g, Vector2 pos, float alphaMultiplier, bool se
 	const bool vrTrailJumpFix = (m_osu->isInVRMode() && !m_osu->getVR()->isVirtualCursorOnScreen());
 
 	Matrix4 mvp;
-	drawCursorInt(g, m_cursorTrailShader, secondTrail ? m_cursorTrail2 : m_cursorTrail, mvp, pos, alphaMultiplier, vrTrailJumpFix);
+	drawCursorInt(g, m_cursorTrailShader, secondTrail ? m_cursorTrail2 : m_cursorTrail, mvp, pos, alphaMultiplier, vrTrailJumpFix, updateAndDrawTrail);
+}
+
+void OsuHUD::drawCursorTrail(Graphics *g, Vector2 pos, float alphaMultiplier, bool secondTrail)
+{
+	const bool vrTrailJumpFix = (m_osu->isInVRMode() && !m_osu->getVR()->isVirtualCursorOnScreen());
+	const bool fposuTrailJumpFix = (m_osu_mod_fposu_ref->getBool() && m_osu->isInPlayMode() && !m_osu->getFPoSu()->isCrosshairIntersectingScreen());
+
+	const bool trailJumpFix = (vrTrailJumpFix || fposuTrailJumpFix);
+
+	Matrix4 mvp;
+	drawCursorTrailInt(g, m_cursorTrailShader, secondTrail ? m_cursorTrail2 : m_cursorTrail, mvp, pos, alphaMultiplier, trailJumpFix);
 }
 
 void OsuHUD::drawCursorSpectator1(Graphics *g, Vector2 pos, float alphaMultiplier)
@@ -798,7 +820,15 @@ void OsuHUD::drawCursorVR2(Graphics *g, Matrix4 &mvp, Vector2 pos, float alphaMu
 	drawCursorInt(g, m_cursorTrailShaderVR, m_cursorTrailVR2, mvp, pos, alphaMultiplier);
 }
 
-void OsuHUD::drawCursorInt(Graphics *g, Shader *trailShader, std::vector<CURSORTRAIL> &trail, Matrix4 &mvp, Vector2 pos, float alphaMultiplier, bool emptyTrailFrame)
+void OsuHUD::drawCursorInt(Graphics *g, Shader *trailShader, std::vector<CURSORTRAIL> &trail, Matrix4 &mvp, Vector2 pos, float alphaMultiplier, bool emptyTrailFrame, bool updateAndDrawTrail)
+{
+	if (updateAndDrawTrail)
+		drawCursorTrailInt(g, trailShader, trail, mvp, pos, alphaMultiplier, emptyTrailFrame);
+
+	drawCursorRaw(g, pos, alphaMultiplier);
+}
+
+void OsuHUD::drawCursorTrailInt(Graphics *g, Shader *trailShader, std::vector<CURSORTRAIL> &trail, Matrix4 &mvp, Vector2 pos, float alphaMultiplier, bool emptyTrailFrame)
 {
 	Image *trailImage = m_osu->getSkin()->getCursorTrail();
 
@@ -871,21 +901,22 @@ void OsuHUD::drawCursorInt(Graphics *g, Shader *trailShader, std::vector<CURSORT
 				trailShader->setUniform1f("time", engine->getTime());
 
 #ifdef MCENGINE_FEATURE_OPENGLES
-
-				OpenGLES2Interface *gles2 = dynamic_cast<OpenGLES2Interface*>(g);
-				if (gles2 != NULL)
 				{
-					gles2->forceUpdateTransform();
-					Matrix4 mvp = gles2->getMVP();
-					trailShader->setUniformMatrix4fv("mvp", mvp);
+					OpenGLES2Interface *gles2 = dynamic_cast<OpenGLES2Interface*>(g);
+					if (gles2 != NULL)
+					{
+						gles2->forceUpdateTransform();
+						Matrix4 mvp = gles2->getMVP();
+						trailShader->setUniformMatrix4fv("mvp", mvp);
+					}
 				}
-
 #endif
 
 				trailImage->bind();
 				{
 					g->setBlendMode(Graphics::BLEND_MODE::BLEND_MODE_ADDITIVE);
 					{
+						g->setColor(0xffffffff);
 						g->drawVAO(m_cursorTrailVAO);
 					}
 					g->setBlendMode(Graphics::BLEND_MODE::BLEND_MODE_ALPHA);
@@ -900,8 +931,6 @@ void OsuHUD::drawCursorInt(Graphics *g, Shader *trailShader, std::vector<CURSORT
 			g->setDepthBuffer(true);
 		}
 	}
-
-	drawCursorRaw(g, pos, alphaMultiplier);
 
 	// trail cleanup
 	while ((trail.size() > 1 && engine->getTime() > trail[0].time) || trail.size() > osu_cursor_trail_max_size.getInt()) // always leave at least 1 previous entry in there
@@ -957,7 +986,7 @@ void OsuHUD::drawCursorTrailRaw(Graphics *g, float alpha, Vector2 pos)
 {
 	Image *trailImage = m_osu->getSkin()->getCursorTrail();
 	const float scale = getCursorTrailScaleFactor();
-	const float animatedScale = scale * (m_osu->getSkin()->getCursorExpand() ? m_fCursorExpandAnim : 1.0f);
+	const float animatedScale = scale * (m_osu->getSkin()->getCursorExpand() && osu_cursor_trail_expand.getBool() ? m_fCursorExpandAnim : 1.0f) * osu_cursor_trail_scale.getFloat();
 
 	g->setColor(0xffffffff);
 	g->setAlpha(alpha);
@@ -1017,7 +1046,7 @@ void OsuHUD::drawFps(Graphics *g, McFont *font, float fps)
 	const UString fpsString = UString::format("%i fps", (int)(fps));
 	const UString msString = UString::format("%.1f ms", (1.0f/fps)*1000.0f);
 
-	const float dpiScale = Osu::getUIScale();
+	const float dpiScale = Osu::getUIScale(m_osu);
 
 	const int margin = std::round(3.0f * dpiScale);
 	const int shadowOffset = std::round(1.0f * dpiScale);
@@ -1219,7 +1248,7 @@ void OsuHUD::drawVolumeChange(Graphics *g)
 {
 	if (engine->getTime() > m_fVolumeChangeTime) return;
 
-	const float dpiScale = Osu::getUIScale();
+	const float dpiScale = Osu::getUIScale(m_osu);
 	const float sizeMultiplier = osu_hud_volume_size_multiplier.getFloat() * dpiScale;
 
 	// legacy
@@ -1245,10 +1274,11 @@ void OsuHUD::drawVolumeChange(Graphics *g)
 		g->pop3DScene();
 }
 
-void OsuHUD::drawScoreNumber(Graphics *g, unsigned long long number, float scale, bool drawLeadingZeroes, int offset)
+void OsuHUD::drawScoreNumber(Graphics *g, unsigned long long number, float scale, bool drawLeadingZeroes)
 {
 	// get digits
-	std::vector<int> digits;
+	static std::vector<int> digits;
+	digits.clear();
 	while (number >= 10)
 	{
 		int curDigit = number % 10;
@@ -1322,7 +1352,89 @@ void OsuHUD::drawScoreNumber(Graphics *g, unsigned long long number, float scale
 			break;
 		}
 
-		g->translate(offset, 0);
+		g->translate(-m_osu->getSkin()->getScoreOverlap()*(m_osu->getSkin()->isScore02x() ? 2 : 1)*scale, 0);
+	}
+}
+
+void OsuHUD::drawComboNumber(Graphics *g, unsigned long long number, float scale, bool drawLeadingZeroes)
+{
+	// get digits
+	static std::vector<int> digits;
+	digits.clear();
+	while (number >= 10)
+	{
+		int curDigit = number % 10;
+		number /= 10;
+
+		digits.insert(digits.begin(), curDigit);
+	}
+	digits.insert(digits.begin(), number);
+	if (digits.size() == 1)
+	{
+		if (drawLeadingZeroes)
+			digits.insert(digits.begin(), 0);
+	}
+
+	// draw them
+	// NOTE: just using the width here is incorrect, but it is the quickest solution instead of painstakingly reverse-engineering how osu does it
+	float lastWidth = m_osu->getSkin()->getCombo0()->getWidth();
+	for (int i=0; i<digits.size(); i++)
+	{
+		switch (digits[i])
+		{
+		case 0:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo0());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 1:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo1());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 2:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo2());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 3:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo3());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 4:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo4());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 5:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo5());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 6:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo6());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 7:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo7());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 8:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo8());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		case 9:
+			g->translate(lastWidth*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getCombo9());
+			g->translate(lastWidth*0.5f*scale, 0);
+			break;
+		}
+
+		g->translate(-m_osu->getSkin()->getComboOverlap()*(m_osu->getSkin()->isCombo02x() ? 2 : 1)*scale, 0);
 	}
 }
 
@@ -1330,11 +1442,14 @@ void OsuHUD::drawComboSimple(Graphics *g, int combo, float scale)
 {
 	g->pushTransform();
 	{
-		drawScoreNumber(g, combo, scale);
+		drawComboNumber(g, combo, scale);
 
 		// draw 'x' at the end
-		g->translate(m_osu->getSkin()->getScoreX()->getWidth()*0.5f*scale, 0);
-		g->drawImage(m_osu->getSkin()->getScoreX());
+		if (m_osu->getSkin()->getComboX() != m_osu->getSkin()->getMissingTexture())
+		{
+			g->translate(m_osu->getSkin()->getComboX()->getWidth()*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getComboX());
+		}
 	}
 	g->popTransform();
 }
@@ -1347,19 +1462,22 @@ void OsuHUD::drawCombo(Graphics *g, int combo)
 
 	// draw back (anim)
 	float animScaleMultiplier = 1.0f + m_fComboAnim2*osu_combo_anim2_size.getFloat();
-	float scale = m_osu->getImageScale(m_osu, m_osu->getSkin()->getScore0(), 32)*animScaleMultiplier * osu_hud_scale.getFloat() * osu_hud_combo_scale.getFloat();
+	float scale = m_osu->getImageScale(m_osu, m_osu->getSkin()->getCombo0(), 32)*animScaleMultiplier * osu_hud_scale.getFloat() * osu_hud_combo_scale.getFloat();
 	if (m_fComboAnim2 > 0.01f)
 	{
 		g->setAlpha(m_fComboAnim2*0.65f);
 		g->pushTransform();
 		{
 			g->scale(scale, scale);
-			g->translate(offset, m_osu->getScreenHeight() - m_osu->getSkin()->getScore0()->getHeight()*scale/2.0f, m_osu->isInVRMode() ? 0.25f : 0.0f);
-			drawScoreNumber(g, combo, scale);
+			g->translate(offset, m_osu->getScreenHeight() - m_osu->getSkin()->getCombo0()->getHeight()*scale/2.0f, m_osu->isInVRMode() ? 0.25f : 0.0f);
+			drawComboNumber(g, combo, scale);
 
 			// draw 'x' at the end
-			g->translate(m_osu->getSkin()->getScoreX()->getWidth()*0.5f*scale, 0);
-			g->drawImage(m_osu->getSkin()->getScoreX());
+			if (m_osu->getSkin()->getComboX() != m_osu->getSkin()->getMissingTexture())
+			{
+				g->translate(m_osu->getSkin()->getComboX()->getWidth()*0.5f*scale, 0);
+				g->drawImage(m_osu->getSkin()->getComboX());
+			}
 		}
 		g->popTransform();
 	}
@@ -1368,16 +1486,19 @@ void OsuHUD::drawCombo(Graphics *g, int combo)
 	g->setAlpha(1.0f);
 	const float animPercent = (m_fComboAnim1 < 1.0f ? m_fComboAnim1 : 2.0f - m_fComboAnim1);
 	animScaleMultiplier = 1.0f + (0.5f*animPercent*animPercent)*osu_combo_anim1_size.getFloat();
-	scale = m_osu->getImageScale(m_osu, m_osu->getSkin()->getScore0(), 32) * animScaleMultiplier * osu_hud_scale.getFloat() * osu_hud_combo_scale.getFloat();
+	scale = m_osu->getImageScale(m_osu, m_osu->getSkin()->getCombo0(), 32) * animScaleMultiplier * osu_hud_scale.getFloat() * osu_hud_combo_scale.getFloat();
 	g->pushTransform();
 	{
 		g->scale(scale, scale);
-		g->translate(offset, m_osu->getScreenHeight() - m_osu->getSkin()->getScore0()->getHeight()*scale/2.0f, m_osu->isInVRMode() ? 0.45f : 0.0f);
-		drawScoreNumber(g, combo, scale);
+		g->translate(offset, m_osu->getScreenHeight() - m_osu->getSkin()->getCombo0()->getHeight()*scale/2.0f, m_osu->isInVRMode() ? 0.45f : 0.0f);
+		drawComboNumber(g, combo, scale);
 
 		// draw 'x' at the end
-		g->translate(m_osu->getSkin()->getScoreX()->getWidth()*0.5f*scale, 0);
-		g->drawImage(m_osu->getSkin()->getScoreX());
+		if (m_osu->getSkin()->getComboX() != m_osu->getSkin()->getMissingTexture())
+		{
+			g->translate(m_osu->getSkin()->getComboX()->getWidth()*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getComboX());
+		}
 	}
 	g->popTransform();
 }
@@ -1395,12 +1516,11 @@ void OsuHUD::drawScore(Graphics *g, unsigned long long score)
 	}
 
 	const float scale = getScoreScale();
-	const int offset = 2;
 	g->pushTransform();
 	{
 		g->scale(scale, scale);
-		g->translate(m_osu->getScreenWidth() - m_osu->getSkin()->getScore0()->getWidth()*scale*numDigits - offset*(numDigits-1), m_osu->getSkin()->getScore0()->getHeight()*scale/2);
-		drawScoreNumber(g, score, scale, false, offset);
+		g->translate(m_osu->getScreenWidth() - m_osu->getSkin()->getScore0()->getWidth()*scale*numDigits + m_osu->getSkin()->getScoreOverlap()*(m_osu->getSkin()->isScore02x() ? 2 : 1)*scale*(numDigits-1), m_osu->getSkin()->getScore0()->getHeight()*scale/2);
+		drawScoreNumber(g, score, scale, false);
 	}
 	g->popTransform();
 }
@@ -1520,6 +1640,11 @@ void OsuHUD::drawHPBar(Graphics *g, double health, float alpha, float breakAnim)
 			g->translate(0.0f, 0.0f, 0.15f);
 		}
 
+		// DEBUG:
+		/*
+		g->fillRect(0, 25, m_osu->getScreenWidth()*health, 10);
+		*/
+
 		m_osu->getSkin()->getScorebarColour()->setDrawClipWidthPercent(health);
 		m_osu->getSkin()->getScorebarColour()->draw(g, (m_osu->getSkin()->getScorebarColour()->getSize() / 2.0f * scale) + (colourOffset * scale) + (breakAnimOffset * scale), scale);
 	}
@@ -1567,24 +1692,29 @@ void OsuHUD::drawAccuracySimple(Graphics *g, float accuracy, float scale)
 	const int accuracyFrac = clamp<int>(((int)(std::round((accuracy - accuracyInt)*100.0f))), 0, 99); // round up
 
 	// draw it
-	const int spacingOffset = 2;
 	g->pushTransform();
 	{
-		drawScoreNumber(g, accuracyInt, scale, true, spacingOffset);
+		drawScoreNumber(g, accuracyInt, scale, true);
 
 		// draw dot '.' between the integer and fractional part
-		g->setColor(0xffffffff);
-		g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
-		g->drawImage(m_osu->getSkin()->getScoreDot());
-		g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
-		g->translate(spacingOffset, 0); // extra spacing
+		if (m_osu->getSkin()->getScoreDot() != m_osu->getSkin()->getMissingTexture())
+		{
+			g->setColor(0xffffffff);
+			g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getScoreDot());
+			g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
+			g->translate(-m_osu->getSkin()->getScoreOverlap()*(m_osu->getSkin()->isScore02x() ? 2 : 1)*scale, 0);
+		}
 
-		drawScoreNumber(g, accuracyFrac, scale, true, spacingOffset);
+		drawScoreNumber(g, accuracyFrac, scale, true);
 
 		// draw '%' at the end
-		g->setColor(0xffffffff);
-		g->translate(m_osu->getSkin()->getScorePercent()->getWidth()*0.5f*scale, 0);
-		g->drawImage(m_osu->getSkin()->getScorePercent());
+		if (m_osu->getSkin()->getScorePercent() != m_osu->getSkin()->getMissingTexture())
+		{
+			g->setColor(0xffffffff);
+			g->translate(m_osu->getSkin()->getScorePercent()->getWidth()*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getScorePercent());
+		}
 	}
 	g->popTransform();
 }
@@ -1598,14 +1728,12 @@ void OsuHUD::drawAccuracy(Graphics *g, float accuracy)
 	const int accuracyFrac = clamp<int>(((int)(std::round((accuracy - accuracyInt)*100.0f))), 0, 99); // round up
 
 	// draw it
-	const int spacingOffset = 2;
 	const int offset = 5;
 	const float scale = m_osu->getImageScale(m_osu, m_osu->getSkin()->getScore0(), 13) * osu_hud_scale.getFloat() * osu_hud_accuracy_scale.getFloat();
 	g->pushTransform();
 	{
-		// note that "spacingOffset*numDigits" would actually be used with (numDigits-1), but because we add a spacingOffset after the score dot we also have to add it here
 		const int numDigits = (accuracyInt > 99 ? 5 : 4);
-		const float xOffset = m_osu->getSkin()->getScore0()->getWidth()*scale*numDigits + m_osu->getSkin()->getScoreDot()->getWidth()*scale + m_osu->getSkin()->getScorePercent()->getWidth()*scale + spacingOffset*numDigits + 1;
+		const float xOffset = m_osu->getSkin()->getScore0()->getWidth()*scale*numDigits + (m_osu->getSkin()->getScoreDot() != m_osu->getSkin()->getMissingTexture() ? m_osu->getSkin()->getScoreDot()->getWidth() : 0)*scale + (m_osu->getSkin()->getScorePercent() != m_osu->getSkin()->getMissingTexture() ? m_osu->getSkin()->getScorePercent()->getWidth() : 0)*scale - m_osu->getSkin()->getScoreOverlap()*(m_osu->getSkin()->isScore02x() ? 2 : 1)*scale*(numDigits+1);
 
 		m_fAccuracyXOffset = m_osu->getScreenWidth() - xOffset - offset;
 		m_fAccuracyYOffset = (osu_draw_score.getBool() ? m_fScoreHeight : 0.0f) + m_osu->getSkin()->getScore0()->getHeight()*scale/2 + offset*2;
@@ -1613,21 +1741,27 @@ void OsuHUD::drawAccuracy(Graphics *g, float accuracy)
 		g->scale(scale, scale);
 		g->translate(m_fAccuracyXOffset, m_fAccuracyYOffset);
 
-		drawScoreNumber(g, accuracyInt, scale, true, spacingOffset);
+		drawScoreNumber(g, accuracyInt, scale, true);
 
 		// draw dot '.' between the integer and fractional part
-		g->setColor(0xffffffff);
-		g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
-		g->drawImage(m_osu->getSkin()->getScoreDot());
-		g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
-		g->translate(spacingOffset, 0); // extra spacing
+		if (m_osu->getSkin()->getScoreDot() != m_osu->getSkin()->getMissingTexture())
+		{
+			g->setColor(0xffffffff);
+			g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getScoreDot());
+			g->translate(m_osu->getSkin()->getScoreDot()->getWidth()*0.5f*scale, 0);
+			g->translate(-m_osu->getSkin()->getScoreOverlap()*(m_osu->getSkin()->isScore02x() ? 2 : 1)*scale, 0);
+		}
 
-		drawScoreNumber(g, accuracyFrac, scale, true, spacingOffset);
+		drawScoreNumber(g, accuracyFrac, scale, true);
 
 		// draw '%' at the end
-		g->setColor(0xffffffff);
-		g->translate(m_osu->getSkin()->getScorePercent()->getWidth()*0.5f*scale, 0);
-		g->drawImage(m_osu->getSkin()->getScorePercent());
+		if (m_osu->getSkin()->getScorePercent() != m_osu->getSkin()->getMissingTexture())
+		{
+			g->setColor(0xffffffff);
+			g->translate(m_osu->getSkin()->getScorePercent()->getWidth()*0.5f*scale, 0);
+			g->drawImage(m_osu->getSkin()->getScorePercent());
+		}
 	}
 	g->popTransform();
 }
@@ -1675,7 +1809,8 @@ void OsuHUD::drawScoreBoard(Graphics *g, std::string &beatmapMD5Hash, OsuScore *
 
 	if (numScores < 1) return;
 
-	std::vector<SCORE_ENTRY> scoreEntries;
+	static std::vector<SCORE_ENTRY> scoreEntries;
+	scoreEntries.clear();
 	scoreEntries.reserve(numScores);
 
 	const bool isUnranked = (m_osu->getModAuto() || (m_osu->getModAutopilot() && m_osu->getModRelax()));
@@ -1755,7 +1890,8 @@ void OsuHUD::drawScoreBoardMP(Graphics *g)
 {
 	const int numPlayers = m_osu->getMultiplayer()->getPlayers()->size();
 
-	std::vector<SCORE_ENTRY> scoreEntries;
+	static std::vector<SCORE_ENTRY> scoreEntries;
+	scoreEntries.clear();
 	scoreEntries.reserve(numPlayers);
 
 	for (int i=0; i<numPlayers; i++)
@@ -2186,39 +2322,54 @@ void OsuHUD::drawHitErrorBarInt(Graphics *g, float hitWindow300, float hitWindow
 	}
 
 	// draw hit errors
-	const bool modMing3012 = OsuGameRules::osu_mod_ming3012.getBool();
-	const float hitFadeDuration = osu_hud_hiterrorbar_entry_hit_fade_time.getFloat();
-	const float missFadeDuration = osu_hud_hiterrorbar_entry_miss_fade_time.getFloat();
-	for (int i=m_hiterrors.size()-1; i>=0; i--)
 	{
-		const float percent = clamp<float>((float)m_hiterrors[i].delta / (float)totalHitWindowLength, -5.0f, 5.0f);
-		float fade = clamp<float>((m_hiterrors[i].time - engine->getTime()) / (m_hiterrors[i].miss || m_hiterrors[i].misaim ? missFadeDuration : hitFadeDuration), 0.0f, 1.0f);
-		fade *= fade; // quad out
+		if (osu_hud_hiterrorbar_entry_additive.getBool())
+			g->setBlendMode(Graphics::BLEND_MODE::BLEND_MODE_ADDITIVE);
 
-		if (m_hiterrors[i].miss || m_hiterrors[i].misaim)
-			g->setColor(colorMiss);
-		else
+		const bool modMing3012 = OsuGameRules::osu_mod_ming3012.getBool();
+		const float hitFadeDuration = osu_hud_hiterrorbar_entry_hit_fade_time.getFloat();
+		const float missFadeDuration = osu_hud_hiterrorbar_entry_miss_fade_time.getFloat();
+		for (int i=m_hiterrors.size()-1; i>=0; i--)
 		{
-			const Color barColor = std::abs(percent) <= percent300 ? color300 : (std::abs(percent) <= percent100 && !modMing3012 ? color100 : color50);
+			const float percent = clamp<float>((float)m_hiterrors[i].delta / (float)totalHitWindowLength, -5.0f, 5.0f);
+			float fade = clamp<float>((m_hiterrors[i].time - engine->getTime()) / (m_hiterrors[i].miss || m_hiterrors[i].misaim ? missFadeDuration : hitFadeDuration), 0.0f, 1.0f);
+			fade *= fade; // quad out
+
+			Color barColor;
+			{
+				if (m_hiterrors[i].miss || m_hiterrors[i].misaim)
+					barColor = colorMiss;
+				else
+					barColor = (std::abs(percent) <= percent300 ? color300 : (std::abs(percent) <= percent100 && !modMing3012 ? color100 : color50));
+			}
+
 			g->setColor(barColor);
+			g->setAlpha(alphaEntry * fade);
+
+			float missHeightMultiplier = 1.0f;
+			if (m_hiterrors[i].miss)
+				missHeightMultiplier = 1.5f;
+			if (m_hiterrors[i].misaim)
+				missHeightMultiplier = 4.0f;
+
+			//Color leftColor = COLOR((int)((255/2) * alphaEntry * fade), COLOR_GET_Ri(barColor), COLOR_GET_Gi(barColor), COLOR_GET_Bi(barColor));
+			//Color centerColor = COLOR((int)(COLOR_GET_Ai(barColor) * alphaEntry * fade), COLOR_GET_Ri(barColor), COLOR_GET_Gi(barColor), COLOR_GET_Bi(barColor));
+			//Color rightColor = leftColor;
+
+			g->fillRect(center.x - (entryWidth/2.0f) + percent*(size.x/2.0f), center.y - (entryHeight*missHeightMultiplier)/2.0f, entryWidth, (entryHeight*missHeightMultiplier));
+			//g->fillGradient((int)(center.x - (entryWidth/2.0f) + percent*(size.x/2.0f)), center.y - (entryHeight*missHeightMultiplier)/2.0f, (int)(entryWidth/2.0f), (entryHeight*missHeightMultiplier), leftColor, centerColor, leftColor, centerColor);
+			//g->fillGradient((int)(center.x - (entryWidth/2.0f/2.0f) + percent*(size.x/2.0f)), center.y - (entryHeight*missHeightMultiplier)/2.0f, (int)(entryWidth/2.0f), (entryHeight*missHeightMultiplier), centerColor, rightColor, centerColor, rightColor);
 		}
 
-		g->setAlpha(alphaEntry * fade);
-
-		float missHeightMultiplier = 1.0f;
-		if (m_hiterrors[i].miss)
-			missHeightMultiplier = 1.5f;
-		if (m_hiterrors[i].misaim)
-			missHeightMultiplier = 4.0f;
-
-		g->fillRect(center.x - (entryWidth/2.0f) + percent*(size.x/2.0f), center.y - (entryHeight*missHeightMultiplier)/2.0f, entryWidth, (entryHeight*missHeightMultiplier));
+		if (osu_hud_hiterrorbar_entry_additive.getBool())
+			g->setBlendMode(Graphics::BLEND_MODE::BLEND_MODE_ALPHA);
 	}
 
 	// white center line
 	if (alphaCenterlineInt > 0)
 	{
 		g->setColor(COLOR(alphaCenterlineInt, clamp<int>(osu_hud_hiterrorbar_centerline_r.getInt(), 0, 255), clamp<int>(osu_hud_hiterrorbar_centerline_g.getInt(), 0, 255), clamp<int>(osu_hud_hiterrorbar_centerline_b.getInt(), 0, 255)));
-		g->fillRect(center.x - entryWidth/2.0f, center.y - entryHeight/2.0f, entryWidth, entryHeight);
+		g->fillRect(center.x - entryWidth/2.0f/2.0f, center.y - entryHeight/2.0f, entryWidth/2.0f, entryHeight);
 	}
 }
 
@@ -2576,7 +2727,7 @@ void OsuHUD::drawTargetHeatmap(Graphics *g, float hitcircleDiameter)
 
 void OsuHUD::drawScrubbingTimeline(Graphics *g, unsigned long beatmapTime, unsigned long beatmapLength, unsigned long beatmapLengthPlayable, unsigned long beatmapStartTimePlayable, float beatmapPercentFinishedPlayable, const std::vector<BREAK> &breaks)
 {
-	const float dpiScale = Osu::getUIScale();
+	const float dpiScale = Osu::getUIScale(m_osu);
 
 	const Vector2 cursorPos = engine->getMouse()->getPos();
 
@@ -3101,7 +3252,7 @@ void OsuHUD::addCursorTrailPosition(std::vector<CURSORTRAIL> &trail, Vector2 pos
 
 	const bool smoothCursorTrail = m_osu->getSkin()->useSmoothCursorTrail() || osu_cursor_trail_smooth_force.getBool();
 
-	const float scaleAnim = (m_osu->getSkin()->getCursorExpand() ? m_fCursorExpandAnim : 1.0f);
+	const float scaleAnim = (m_osu->getSkin()->getCursorExpand() && osu_cursor_trail_expand.getBool() ? m_fCursorExpandAnim : 1.0f) * osu_cursor_trail_scale.getFloat();
 	const float trailWidth = trailImage->getWidth() * getCursorTrailScaleFactor() * scaleAnim * osu_cursor_scale.getFloat();
 
 	CURSORTRAIL ct;
