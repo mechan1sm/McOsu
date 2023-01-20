@@ -1,3 +1,16 @@
+
+## Fork description
+This repo is copy of McKay42's one, but with changed slider logics
+
+Main ConVar is osu_slider_snake_type:
+- 0 - default
+- 1 - osu_snake_type_1_multiplier of approach time
+- 2 - just osu_snake_type_2_time
+- 3 - osu_snake_type_3_multiplier of slider time until first reverse
+- 4 - osu_snake_type_4_multiplier of full slider time
+- xx - snake time scales as the time goes, may look weird in some cases
+- 1xx - snaking and shringking work even if slider has reverses
+
 # McOsu
 
 **[DOWNLOAD > https://github.com/McKay42/McOsu/releases](https://github.com/McKay42/McOsu/releases)**
