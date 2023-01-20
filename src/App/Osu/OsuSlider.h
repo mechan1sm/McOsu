@@ -113,6 +113,9 @@ private:
 	float m_fSlidePercent;			// 0.0f - 1.0f - 0.0f - 1.0f - etc.
 	float m_fActualSlidePercent;	// 0.0f - 1.0f
 	float m_fSliderSnakePercent;
+	float m_fSliderShrinkPercent;
+	float m_fSliderSnakeTime;
+	float m_fSliderSnakeTime2;
 	float m_fReverseArrowAlpha;
 	float m_fBodyAlpha;
 

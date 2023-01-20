@@ -1015,7 +1015,6 @@ void OsuSlider::update(long curPos)
 
 	m_fActualSlidePercent = m_fSlidePercent;
 
-
 	switch(osu_slider_snake_type.getInt()) {
 	case 0: m_fSliderSnakeTime = m_iApproachTime / 3.0f * osu_slider_snake_duration_multiplier.getFloat(); break;
 	case 1: case 101: m_fSliderSnakeTime = m_iApproachTime * osu_slider_snake_type_1_multiplier.getFloat(); break;
@@ -1040,7 +1039,7 @@ void OsuSlider::update(long curPos)
 				case 0:
 					if (m_fSliderSnakeTime2 <= m_fSliderTimeWithoutRepeats + m_fSliderSnakeTime) {
 						// snaketime  = snaking1time - min(1,max(0,(now - start + snaking1time )/(durNoRe + (snaking1time - snaking2time)))) * (snaking1time - snaking2time)
-						//       snaketime =       snaking1time -      min(1   ,     max(0,   (now    -  start  +       snaking1time)/(          durNoRe           +       snaking1time -       snaking2time ))) * (snaking1time - snaking2time)
+						//	   snaketime =	   snaking1time -	  min(1   ,	 max(0,   (now	-  start  +	   snaking1time)/(		  durNoRe		   +	   snaking1time -	   snaking2time ))) * (snaking1time - snaking2time)
 						m_fSliderSnakeTime = m_fSliderSnakeTime - std::min(1.0f,std::max(0.0f,(curPos - m_iTime + m_fSliderSnakeTime)/(m_fSliderTimeWithoutRepeats + m_fSliderSnakeTime - m_fSliderSnakeTime2))) * (m_fSliderSnakeTime - m_fSliderSnakeTime2);
 					} else { 
 						//m_fSliderSnakeTime = m_fSliderSnakeTime - std::min(1.0f,std::max(0.0f,(curPos - m_iTime + m_fSliderSnakeTime)/(m_fSliderTimeWithoutRepeats + m_fSliderSnakeTime - m_fSliderSnakeTime2))) * (m_fSliderSnakeTime - m_fSliderSnakeTime2);
@@ -1050,7 +1049,7 @@ void OsuSlider::update(long curPos)
 				case 1:
 					if (m_fSliderSnakeTime2 <= m_fSliderTimeWithoutRepeats + m_fSliderSnakeTime) {
 						// snaketime  = snaking1time - min(1,max(0,(now - start + snaking1time )/(durNoRe + (snaking1time - snaking2time)))) * (snaking1time - snaking2time)
-						//       snaketime =       snaking1time -      min(1   ,     max(0,   (now    -  start  +       snaking1time)/(          dur          +       snaking1time -       snaking2time ))) * (snaking1time - snaking2time)
+						//	   snaketime =	   snaking1time -	  min(1   ,	 max(0,   (now	-  start  +	   snaking1time)/(		  dur		  +	   snaking1time -	   snaking2time ))) * (snaking1time - snaking2time)
 						m_fSliderSnakeTime = m_fSliderSnakeTime - std::min(1.0f,std::max(0.0f,(curPos - m_iTime + m_fSliderSnakeTime)/(m_fSliderTime + m_fSliderSnakeTime - m_fSliderSnakeTime2))) * (m_fSliderSnakeTime - m_fSliderSnakeTime2);
 					} else {
 						m_fSliderSnakeTime = - m_fSliderSnakeTime + std::min(1.0f,std::max(0.0f,(curPos - m_iTime + m_fSliderSnakeTime)/(m_fSliderTime + m_fSliderSnakeTime - m_fSliderSnakeTime2))) * (m_fSliderSnakeTime - m_fSliderSnakeTime2);
@@ -1098,87 +1097,87 @@ void OsuSlider::update(long curPos)
 	default:
 		switch(osu_slider_snake_type.getInt()/100%10) {
 		case 0: //case 1: case 2: case 11: case 22: case 12: case 21:
-	    	m_fSliderSnakePercent = std::min(1.0f, std::max(0.0f,(curPos - m_iTime + m_fSliderSnakeTime) / m_fSliderTimeWithoutRepeats)); 
-	    	reverseArrowFadeInStart = m_iTime  + (m_fSliderTimeWithoutRepeats - m_fSliderSnakeTime);
-	    	break;
-    	case 1:
-	    	if ((osu_slider_snake_type.getInt() / 100 % 10 == 1) && (osu_slider_snake_type.getInt() / 10 % 10 <= 2) && ((osu_slider_snake_type.getInt() % 10 +1)/2 == 1))
-	    	{
-	    		
-	    		int totalSlideParts = (m_fSliderTime+0.25f) / m_fSliderTimeWithoutRepeats;
-	    		int nowSlidePartId = std::floor((curPos - m_iTime) / m_fSliderTimeWithoutRepeats);
-	            int fullSnakingSliderFuturePartId;
-	            float nowSubSlidePercent = (curPos - m_iTime - nowSlidePartId * m_fSliderTimeWithoutRepeats) / m_fSliderTimeWithoutRepeats;
-	            
-	            fullSnakingSliderFuturePartId = std::floor((curPos - m_iTime + m_fSliderSnakeTime) / m_fSliderTimeWithoutRepeats); 
-	            reverseArrowFadeInStart = m_iTime + (m_fSliderTimeWithoutRepeats - m_fSliderSnakeTime);
-	            
-	            if ( (fullSnakingSliderFuturePartId - nowSlidePartId == 0 && fullSnakingSliderFuturePartId >= 0 && nowSlidePartId <= totalSlideParts-1) 
-	              || (fullSnakingSliderFuturePartId - nowSlidePartId == 1 && fullSnakingSliderFuturePartId >  0 && nowSlidePartId <  totalSlideParts-1)
-	              ||  fullSnakingSliderFuturePartId - nowSlidePartId > 0 && fullSnakingSliderFuturePartId == 0) {
-	            	
-	            	m_fSliderSnakePercent =  (curPos - m_iTime + m_fSliderSnakeTime) / m_fSliderTimeWithoutRepeats;
+			m_fSliderSnakePercent = std::min(1.0f, std::max(0.0f,(curPos - m_iTime + m_fSliderSnakeTime) / m_fSliderTimeWithoutRepeats)); 
+			reverseArrowFadeInStart = m_iTime  + (m_fSliderTimeWithoutRepeats - m_fSliderSnakeTime);
+			break;
+		case 1:
+			if ((osu_slider_snake_type.getInt() / 100 % 10 == 1) && (osu_slider_snake_type.getInt() / 10 % 10 <= 2) && ((osu_slider_snake_type.getInt() % 10 +1)/2 == 1))
+			{
+				
+				int totalSlideParts = (m_fSliderTime+0.25f) / m_fSliderTimeWithoutRepeats;
+				int nowSlidePartId = std::floor((curPos - m_iTime) / m_fSliderTimeWithoutRepeats);
+				int fullSnakingSliderFuturePartId;
+				float nowSubSlidePercent = (curPos - m_iTime - nowSlidePartId * m_fSliderTimeWithoutRepeats) / m_fSliderTimeWithoutRepeats;
+				
+				fullSnakingSliderFuturePartId = std::floor((curPos - m_iTime + m_fSliderSnakeTime) / m_fSliderTimeWithoutRepeats); 
+				reverseArrowFadeInStart = m_iTime + (m_fSliderTimeWithoutRepeats - m_fSliderSnakeTime);
+				
+				if ( (fullSnakingSliderFuturePartId - nowSlidePartId == 0 && fullSnakingSliderFuturePartId >= 0 && nowSlidePartId <= totalSlideParts-1) 
+				  || (fullSnakingSliderFuturePartId - nowSlidePartId == 1 && fullSnakingSliderFuturePartId >  0 && nowSlidePartId <  totalSlideParts-1)
+				  ||  fullSnakingSliderFuturePartId - nowSlidePartId > 0 && fullSnakingSliderFuturePartId == 0) {
+					
+					m_fSliderSnakePercent =  (curPos - m_iTime + m_fSliderSnakeTime) / m_fSliderTimeWithoutRepeats;
 					m_fSliderSnakePercent -= (int) floor(m_fSliderSnakePercent);
 					
-	            	
-	            	if ( (fullSnakingSliderFuturePartId - nowSlidePartId == 0 && fullSnakingSliderFuturePartId >= 0 && nowSlidePartId <= totalSlideParts-1)
-	              	  || (fullSnakingSliderFuturePartId - nowSlidePartId == 1 && fullSnakingSliderFuturePartId >  0 && nowSlidePartId <  totalSlideParts-1) ) {
-		                
-		                switch (((fullSnakingSliderFuturePartId&1)<<1) + (nowSlidePartId&1) ) {
-		                case 0: // both ->
-		                	m_fSliderShrinkPercent =  nowSubSlidePercent;
-		                    //m_fSliderSnakePercent = m_fSliderSnakePercent;
-		                    //sliderSnakeStart = 0.0f; sliderSnake = 1.0f;
-		                    break;
-		                case 3: // <- both
-		                	m_fSliderShrinkPercent = 1.0f - m_fSliderSnakePercent;
-		                    m_fSliderSnakePercent = 1.0f - nowSubSlidePercent;
+					
+					if ( (fullSnakingSliderFuturePartId - nowSlidePartId == 0 && fullSnakingSliderFuturePartId >= 0 && nowSlidePartId <= totalSlideParts-1)
+				  	  || (fullSnakingSliderFuturePartId - nowSlidePartId == 1 && fullSnakingSliderFuturePartId >  0 && nowSlidePartId <  totalSlideParts-1) ) {
+						
+						switch (((fullSnakingSliderFuturePartId&1)<<1) + (nowSlidePartId&1) ) {
+						case 0: // both ->
+							m_fSliderShrinkPercent =  nowSubSlidePercent;
+							//m_fSliderSnakePercent = m_fSliderSnakePercent;
+							//sliderSnakeStart = 0.0f; sliderSnake = 1.0f;
+							break;
+						case 3: // <- both
+							m_fSliderShrinkPercent = 1.0f - m_fSliderSnakePercent;
+							m_fSliderSnakePercent = 1.0f - nowSubSlidePercent;
 
-		                    break;
-		                case 2: // now->  <-future
-		                	m_fSliderShrinkPercent = std::min(nowSubSlidePercent,1.0f - m_fSliderSnakePercent);
-		                    m_fSliderSnakePercent = 1.0f; //0.9999990463256836;
-		                    break;
-		                case 1: // future->  <-now
-		                    m_fSliderShrinkPercent = 0.0f;
-		                    m_fSliderSnakePercent = std::max(1.0f - nowSubSlidePercent,m_fSliderSnakePercent);
-		                    break;
-		                }
-		            } else { // fullSnakingSliderFuturePartId - nowSlidePartId > 0 && fullSnakingSliderFuturePartId == 0
-		            	m_fSliderShrinkPercent = 0.0f;
-		            	
-		            }
-		        	//debugLog("1 ns%d fs%d sld%f shr%f snk%f; ",nowSlidePartId,fullSnakingSliderFuturePartId,m_fSlidePercent,m_fSliderShrinkPercent,m_fSliderSnakePercent );
-	            } else {
-	            	if (fullSnakingSliderFuturePartId == 0) {
-	            		m_fSliderShrinkPercent = 0.0f; 
-	            	} else if (nowSlidePartId == totalSlideParts-1) { // m_fSliderTime - m_fSliderTimeWithoutRepeats <= curPos && curPos <= m_fSliderTime) {
-	            		if ((nowSlidePartId&1)==0) {
-	            			m_fSliderShrinkPercent = nowSubSlidePercent;
-	            			m_fSliderSnakePercent  = 1.0f;
-	            		} else {
-	            			m_fSliderShrinkPercent = 0.0f;
-	            			m_fSliderSnakePercent  =  1.0f - nowSubSlidePercent;
-	            		} 
-	            	} else if (fullSnakingSliderFuturePartId - nowSlidePartId >= 2 && fullSnakingSliderFuturePartId > 0) { // &&  curPos <= m_fSliderTime - m_fSliderTimeWithoutRepeats) {
-		                m_fSliderShrinkPercent = 0.0f;
-		                m_fSliderSnakePercent = 1.0f;
-		            } else if (fullSnakingSliderFuturePartId >=0) {
-		            	m_fSliderShrinkPercent = 0.0f; //m_fSliderSnakePercent = 1.0f;
+							break;
+						case 2: // now->  <-future
+							m_fSliderShrinkPercent = std::min(nowSubSlidePercent,1.0f - m_fSliderSnakePercent);
+							m_fSliderSnakePercent = 1.0f; //0.9999990463256836;
+							break;
+						case 1: // future->  <-now
+							m_fSliderShrinkPercent = 0.0f;
+							m_fSliderSnakePercent = std::max(1.0f - nowSubSlidePercent,m_fSliderSnakePercent);
+							break;
+						}
+					} else { // fullSnakingSliderFuturePartId - nowSlidePartId > 0 && fullSnakingSliderFuturePartId == 0
+						m_fSliderShrinkPercent = 0.0f;
+						
+					}
+					//debugLog("1 ns%d fs%d sld%f shr%f snk%f; ",nowSlidePartId,fullSnakingSliderFuturePartId,m_fSlidePercent,m_fSliderShrinkPercent,m_fSliderSnakePercent );
+				} else {
+					if (fullSnakingSliderFuturePartId == 0) {
+						m_fSliderShrinkPercent = 0.0f; 
+					} else if (nowSlidePartId == totalSlideParts-1) { // m_fSliderTime - m_fSliderTimeWithoutRepeats <= curPos && curPos <= m_fSliderTime) {
+						if ((nowSlidePartId&1)==0) {
+							m_fSliderShrinkPercent = nowSubSlidePercent;
+							m_fSliderSnakePercent  = 1.0f;
+						} else {
+							m_fSliderShrinkPercent = 0.0f;
+							m_fSliderSnakePercent  =  1.0f - nowSubSlidePercent;
+						} 
+					} else if (fullSnakingSliderFuturePartId - nowSlidePartId >= 2 && fullSnakingSliderFuturePartId > 0) { // &&  curPos <= m_fSliderTime - m_fSliderTimeWithoutRepeats) {
+						m_fSliderShrinkPercent = 0.0f;
+						m_fSliderSnakePercent = 1.0f;
+					} else if (fullSnakingSliderFuturePartId >=0) {
+						m_fSliderShrinkPercent = 0.0f; //m_fSliderSnakePercent = 1.0f;
 
-	            	} else { // no snaking yet
-	            		m_fSliderShrinkPercent = 0.0f; 
-	            		m_fSliderSnakePercent = 0.0f;
-	            	}
-	            	//debugLog("2 ns%d fs%d sld%f shr%f snk%f; ",nowSlidePartId,fullSnakingSliderFuturePartId,m_fSlidePercent,m_fSliderShrinkPercent,m_fSliderSnakePercent );
-	         	}         	
-	    	} else {
-	    		reverseArrowFadeInStart = m_iTime - m_iApproachTime;
-	    	}
-	    	break;
-	    }
-	    break;
-    }
+					} else { // no snaking yet
+						m_fSliderShrinkPercent = 0.0f; 
+						m_fSliderSnakePercent = 0.0f;
+					}
+					//debugLog("2 ns%d fs%d sld%f shr%f snk%f; ",nowSlidePartId,fullSnakingSliderFuturePartId,m_fSlidePercent,m_fSliderShrinkPercent,m_fSliderSnakePercent );
+			 	}		 	
+			} else {
+				reverseArrowFadeInStart = m_iTime - m_iApproachTime;
+			}
+			break;
+		}
+		break;
+	}
 	
 //	const long reverseArrowFadeInStart = m_iTime - (osu_snaking_sliders.getBool() ? (m_iApproachTime - m_fSliderSnakeTime) : m_iApproachTime);
 	const long reverseArrowFadeInEnd = reverseArrowFadeInStart + osu_slider_reverse_arrow_fadein_duration.getInt();
@@ -1718,7 +1717,7 @@ void OsuSlider::onHit(OsuScore::HIT result, long delta, bool startOrEnd, float t
 
 	// start + end of a slider add +30 points, if successful
 
-	//debugLog("startOrEnd = %i,    m_iCurRepeat = %i\n", (int)startOrEnd, m_iCurRepeat);
+	//debugLog("startOrEnd = %i,	m_iCurRepeat = %i\n", (int)startOrEnd, m_iCurRepeat);
 
 	// sound and hit animation and also sliderbreak combo drop
 	{
